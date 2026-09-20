@@ -705,7 +705,7 @@ function startWord(e) {
     if (cuteReactionActive) resetCat();
     
     document.querySelectorAll('.letter-node').forEach(n => {
-        n.classList.remove('selected', 'hint', 'error', 'duplicate', 'correct');
+        n.classList.remove('selected', 'hint', 'error', 'duplicate', 'correct', 'prefix-invalid');
     });
     
     enterNode.call(this, e);
@@ -715,11 +715,28 @@ function enterNode(e) {
     if (!isDragging) return;
     if (selectedNodes.includes(this)) return;
 
+    // Só aceita células vizinhas (8 direções) da última selecionada
+    if (selectedNodes.length > 0) {
+        const last = selectedNodes[selectedNodes.length - 1];
+        const lastIdx = parseInt(last.dataset.index, 10);
+        const nextIdx = parseInt(this.dataset.index, 10);
+        const lr = Math.floor(lastIdx / 5), lc = lastIdx % 5;
+        const nr = Math.floor(nextIdx / 5), nc = nextIdx % 5;
+        if (Math.abs(nr - lr) > 1 || Math.abs(nc - lc) > 1) return;
+    }
+
     playTap();
     this.classList.add('selected');
     selectedNodes.push(this);
     currentWord += this.innerText;
     ui.wordDisplay.innerText = currentWord;
+
+    // Feedback ao vivo: prefixo sem continuação no dicionário
+    if (!prefixSet.has(currentWord)) {
+        selectedNodes.forEach(n => n.classList.add('prefix-invalid'));
+    } else {
+        selectedNodes.forEach(n => n.classList.remove('prefix-invalid'));
+    }
 }
 
 ui.grid.addEventListener('touchmove', (e) => {
@@ -742,10 +759,33 @@ function checkWord(word) {
     let isCorrect = false;
     let isDuplicate = false;
 
+    if (!word || word.length === 0) {
+        setTimeout(() => {
+            document.querySelectorAll('.letter-node').forEach(n => {
+                n.classList.remove('selected', 'error', 'duplicate', 'correct', 'prefix-invalid');
+            });
+            ui.wordDisplay.innerText = '';
+            currentWord = '';
+        }, 400);
+        return;
+    }
+
+    if (word.length < 3) {
+        reactCat('T_T', 'Muito curtinha!');
+        setTimeout(() => {
+            document.querySelectorAll('.letter-node').forEach(n => {
+                n.classList.remove('selected', 'error', 'duplicate', 'correct', 'prefix-invalid');
+            });
+            ui.wordDisplay.innerText = '';
+            currentWord = '';
+        }, 400);
+        return;
+    }
+
     if (word.length >= 3) {
         if (foundWords.includes(word)) {
             isDuplicate = true;
-        } else if (dictSet.has(word)) {
+        } else if (wordPaths.has(word)) {
             isCorrect = true;
         }
     }
@@ -779,15 +819,15 @@ function checkWord(word) {
             playWin();
             reactCat('♥‿♥', 'A gata mais linda do mundo! +100 pts!', true);
             score += 100;
-        } else if (word.startsWith('AMOR')) {
+        } else if (word === 'AMOR') {
             playMeow();
             reactCat('♥‿♥', 'O amor está no ar! +50 pts!', true);
             score += 50;
-        } else if (word.startsWith('GATA')) {
+        } else if (word === 'GATA') {
             playMeow();
             reactCat('♥ω♥', 'Miau! É vc! +50 pts!', true);
             score += 50;
-        } else if (word.startsWith('GATO')) {
+        } else if (word === 'GATO') {
             playMeow();
             reactCat('^ↀᴥↀ^', 'Miau! Sou eu! +50 pts!', true);
             score += 50;
@@ -805,7 +845,7 @@ function checkWord(word) {
 
     setTimeout(() => {
         document.querySelectorAll('.letter-node').forEach(n => {
-            n.classList.remove('selected', 'error', 'duplicate', 'correct');
+            n.classList.remove('selected', 'error', 'duplicate', 'correct', 'prefix-invalid');
         });
         ui.wordDisplay.innerText = '';
         currentWord = '';
