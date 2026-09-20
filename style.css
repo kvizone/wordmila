@@ -308,6 +308,11 @@ body {
 .letter-node.hint { animation: shake 0.5s infinite; background-color: var(--correct); }
 .letter-node.error { background-color: var(--error); }
 .letter-node.duplicate { background-color: var(--duplicate); }
+.letter-node.prefix-invalid {
+    opacity: 0.72;
+    border-color: #c4a882;
+    box-shadow: inset 0 0 0 1px rgba(180, 120, 60, 0.25);
+}
 
 .bottom-bar {
     display: flex;
