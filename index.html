@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wordmila</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- OVERLAY DE INTERAÇÃO (Necessário para os navegadores liberarem o áudio) -->
+        <div id="interaction-overlay" onclick="enterLobby()">
+            <div class="pulse-text">🐾 Toque para Entrar 🐾</div>
+        </div>
+
+        <!-- TELA INICIAL -->
+        <div id="screen-start" class="screen active">
+            <h1 class="title">Wordmila</h1>
+            <div class="cat-sprite main-cat">
+                <div class="ascii-cat dancing-cat" id="lobby-cat">
+                    /\_/\<br>
+                   ( ˘ ▽ ˘ )<br>
+                   / > ♫ < \
+                </div>
+            </div>
+            <p class="subtitle">Deslize, conecte e divirta-se!</p>
+            
+            <div class="menu-buttons">
+                <button class="btn" onclick="startGame('soneca')">
+                    Modo Soneca 💤<br><small>Livre para relaxar</small>
+                </button>
+                <button class="btn" onclick="startGame('cacada')">
+                    Modo Caçada ⏱️<br><small>Contra o tempo</small>
+                </button>
+            </div>
+        </div>
+
+        <!-- TELA DE JOGO -->
+        <div id="screen-game" class="screen">
+            <div class="top-bar">
+                <div class="score-container">Pontos:<br><span id="score">0</span></div>
+                
+                <button id="btn-words" class="btn-top" onclick="toggleWordsModal()">
+                    📝 <span id="found-count">0</span>/<span id="total-count">0</span>
+                </button>
+
+                <div id="timer-container" class="hidden">Tempo:<br><span id="timer">60</span>s</div>
+            </div>
+            
+            <div class="cat-area">
+                <div id="cat-reaction" class="cat-sprite">
+                    <div class="ascii-cat" id="cat-face">
+                        /\_/\<br>
+                       ( -.- )
+                    </div>
+                </div>
+                <div id="cat-message">zZzZz...</div>
+            </div>
+
+            <div class="word-display-area">
+                <div id="current-word"></div>
+            </div>
+
+            <div class="grid-area" id="grid"></div>
+
+            <div class="bottom-bar">
+                <button id="btn-hint" class="btn-small" onclick="useHint()">🐾 Pulo do Gato</button>
+                <button class="btn-small btn-danger" onclick="endGame()">Encerrar</button>
+            </div>
+
+            <div id="words-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Encontradas</h3>
+                        <button class="btn-close" onclick="toggleWordsModal()">X</button>
+                    </div>
+                    <div id="found-words-list" class="modal-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TELA DE FIM DE JOGO -->
+        <div id="screen-end" class="screen">
+            <h2 id="end-title">Fim de Jogo!</h2>
+            <div class="cat-sprite">
+                <div class="ascii-cat">
+                    /\_/\<br>
+                   ( ^_^ )
+                </div>
+            </div>
+            <p>Pontuação Final:</p>
+            <h1 id="final-score">0</h1>
+            <p id="end-message">Miauravilhoso!</p>
+            <button class="btn" onclick="showStartScreen()">Jogar Novamente</button>
+        </div>
+    </div>
+
+    <script src="words.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
