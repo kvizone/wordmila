@@ -169,6 +169,7 @@ function enterLobby() {
     initAudio();
     startLobbyMusic();
     playTap();
+    renderBestScore();
 }
 
 
@@ -214,6 +215,8 @@ const ui = {
     catMessage: document.getElementById('cat-message'),
     grid: document.getElementById('grid'),
     finalScore: document.getElementById('final-score'),
+    finalWords: document.getElementById('final-words'),
+    bestScore: document.getElementById('best-score'),
     foundWordsList: document.getElementById('found-words-list'),
     foundCount: document.getElementById('found-count'),
     totalCount: document.getElementById('total-count'),
@@ -221,6 +224,41 @@ const ui = {
     endMessage: document.getElementById('end-message'),
     wordsModal: document.getElementById('words-modal')
 };
+
+// ===== MELHOR PONTUAÇÃO (salva no aparelho) =====
+const BEST_SCORE_KEY = 'wordmila_best_score';
+
+function loadBestScore() {
+    try {
+        const raw = localStorage.getItem(BEST_SCORE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+function renderBestScore() {
+    const best = loadBestScore();
+    if (!best) {
+        ui.bestScore.classList.add('hidden');
+        return;
+    }
+    ui.bestScore.innerText = `🏆 ${best.score} pts · ${best.found}/${best.total} palavras`;
+    ui.bestScore.classList.remove('hidden');
+}
+
+function saveBestScoreIfBetter(finalScoreValue, found, total) {
+    const best = loadBestScore();
+    if (!best || finalScoreValue > best.score) {
+        try {
+            localStorage.setItem(BEST_SCORE_KEY, JSON.stringify({
+                score: finalScoreValue,
+                found,
+                total
+            }));
+        } catch (e) { /* localStorage indisponível, ignora */ }
+    }
+}
 
 function toggleWordsModal() {
     playTap();
@@ -234,6 +272,7 @@ function switchScreen(screenId) {
 
 function showStartScreen() {
     switchScreen('start');
+    renderBestScore();
     startLobbyMusic();
 }
 
@@ -263,6 +302,8 @@ function startGame(mode) {
 function endGame(reason = 'time') {
     clearInterval(timerInterval);
     ui.finalScore.innerText = score;
+    ui.finalWords.innerText = `${foundWords.length}/${allPossibleWords.length} palavras`;
+    saveBestScoreIfBetter(score, foundWords.length, allPossibleWords.length);
     
     if (reason === 'cleared') {
         ui.endTitle.innerText = "Limpeza Total!";
