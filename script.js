@@ -330,12 +330,21 @@ function startTimer() {
 }
 
 
-// ===== GERAÇÃO DE TABULEIRO 5x5 =====
-const ADJ8 = [
-    [-1,-1], [-1,0], [-1,1],
-    [0,-1],          [0,1],
-    [1,-1],  [1,0],  [1,1]
-];
+// ===== GERAÇÃO DE TABULEIRO 5x5 (colmeia) =====
+// Layout hex "pointy-top": linhas ímpares deslocadas meia célula pra direita.
+// Cada célula tem até 6 vizinhas (nunca 8) — acaba com a diagonal ambígua do grid quadrado.
+function hexNeighborsOf(r, c) {
+    const evenRow = (r % 2 === 0);
+    const deltas = evenRow
+        ? [[-1, -1], [-1, 0], [0, -1], [0, 1], [1, -1], [1, 0]]
+        : [[-1, 0], [-1, 1], [0, -1], [0, 1], [1, 0], [1, 1]];
+    const out = [];
+    for (const [dr, dc] of deltas) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < 5 && nc >= 0 && nc < 5) out.push([nr, nc]);
+    }
+    return out;
+}
 
 function findPossibleWords(gridLetters) {
     let found = new Map();
@@ -351,13 +360,10 @@ function findPossibleWords(gridLetters) {
         
         if (word.length >= 12) return; 
 
-        for (let [dr, dc] of ADJ8) {
-            let nr = r + dr, nc = c + dc;
-            if (nr >= 0 && nr < 5 && nc >= 0 && nc < 5) { 
-                let idx = nr * 5 + nc;
-                if (!path.includes(idx)) {
-                    dfs(nr, nc, [...path, idx], word + gridLetters[idx]);
-                }
+        for (const [nr, nc] of hexNeighborsOf(r, c)) {
+            let idx = nr * 5 + nc;
+            if (!path.includes(idx)) {
+                dfs(nr, nc, [...path, idx], word + gridLetters[idx]);
             }
         }
     }
@@ -484,9 +490,7 @@ function tryPlantWordSnakeSafe(grid, word, preferBent = true) {
             const last = path[path.length - 1];
             const r = Math.floor(last / 5), c = last % 5;
             let neighbors = [];
-            for (const [dr, dc] of ADJ8) {
-                const nr = r + dr, nc = c + dc;
-                if (nr < 0 || nr > 4 || nc < 0 || nc > 4) continue;
+            for (const [nr, nc] of hexNeighborsOf(r, c)) {
                 const idx = nr * 5 + nc;
                 if (path.includes(idx)) continue;
                 if (grid[idx] !== null && grid[idx] !== word[i]) continue;
@@ -717,17 +721,25 @@ function buildGrid() {
     ui.foundCount.innerText = "0";
     ui.totalCount.innerText = allPossibleWords.length;
 
-    boardData.gridLetters.forEach((letter, index) => {
-        const node = document.createElement('div');
-        node.classList.add('letter-node');
-        node.innerText = letter;
-        node.dataset.index = index;
-        
-        node.addEventListener('pointerdown', startWord);
-        node.addEventListener('pointerenter', enterNode);
-        
-        ui.grid.appendChild(node);
-    });
+    for (let r = 0; r < 5; r++) {
+        const rowEl = document.createElement('div');
+        rowEl.classList.add('hex-row');
+        if (r % 2 === 1) rowEl.classList.add('offset');
+
+        for (let c = 0; c < 5; c++) {
+            const index = r * 5 + c;
+            const node = document.createElement('div');
+            node.classList.add('letter-node');
+            node.innerText = boardData.gridLetters[index];
+            node.dataset.index = index;
+
+            node.addEventListener('pointerdown', startWord);
+            node.addEventListener('pointerenter', enterNode);
+
+            rowEl.appendChild(node);
+        }
+        ui.grid.appendChild(rowEl);
+    }
 
     document.addEventListener('pointerup', endWord);
 }
@@ -756,14 +768,15 @@ function enterNode(e) {
     if (!isDragging) return;
     if (selectedNodes.includes(this)) return;
 
-    // Só aceita células vizinhas (8 direções) da última selecionada
+    // Só aceita células vizinhas de verdade na colmeia (até 6 direções, nunca diagonal solta)
     if (selectedNodes.length > 0) {
         const last = selectedNodes[selectedNodes.length - 1];
         const lastIdx = parseInt(last.dataset.index, 10);
         const nextIdx = parseInt(this.dataset.index, 10);
         const lr = Math.floor(lastIdx / 5), lc = lastIdx % 5;
         const nr = Math.floor(nextIdx / 5), nc = nextIdx % 5;
-        if (Math.abs(nr - lr) > 1 || Math.abs(nc - lc) > 1) return;
+        const isNeighbor = hexNeighborsOf(lr, lc).some(([r, c]) => r === nr && c === nc);
+        if (!isNeighbor) return;
     }
 
     playTap();
