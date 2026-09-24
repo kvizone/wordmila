@@ -197,6 +197,8 @@ let currentWord = '';
 let selectedNodes = [];
 
 let foundWords = [];
+let hintsUsed = 0;
+const MAX_HINTS = 3;
 let allPossibleWords = [];
 let wordPaths = new Map();
 
@@ -282,6 +284,7 @@ function startGame(mode) {
     currentMode = mode;
     score = 0;
     foundWords = [];
+    hintsUsed = 0;
     ui.score.innerText = score;
     ui.foundWordsList.innerHTML = '';
     
@@ -763,7 +766,7 @@ function generateValidBoard(forceCamila) {
         // critérios de qualidade (mapa jogável)
         const quality =
             plantedOk.length >= Math.min(4, planted.length) &&
-            possible.length >= 10 &&
+            possible.length >= 50 &&
             usual4 >= 5;
 
         const score = plantedOk.length * 10 + usual4 * 3 + usual5 * 2 + possible.length;
@@ -1012,6 +1015,11 @@ function resetCat() {
 }
 
 function useHint() {
+    if (hintsUsed >= MAX_HINTS) {
+        playError();
+        reactCat('T_T', 'Pulos acabaram!');
+        return;
+    }
     playTap();
     const missingWords = allPossibleWords.filter(w => !foundWords.includes(w));
     if (missingWords.length === 0) {
@@ -1030,7 +1038,9 @@ function useHint() {
     const path = wordPaths.get(hintWord);
     if (!path) return;
 
-    reactCat('O_O', `Pista: ${hintWord}!`);
+    hintsUsed++;
+    const restantes = MAX_HINTS - hintsUsed;
+    reactCat('O_O', `Pista: ${hintWord}! (${restantes} pulo${restantes === 1 ? '' : 's'} restante${restantes === 1 ? '' : 's'})`);
 
     document.querySelectorAll('.letter-node.hint').forEach(n => n.classList.remove('hint'));
     path.forEach((idx, i) => {
