@@ -603,7 +603,61 @@ function countByLen(words, minLen) {
     return words.filter(w => w.length >= minLen).length;
 }
 
+const VOWEL_SET = new Set(['A', 'E', 'I', 'O', 'U']);
+
+// Descobre, olhando o próprio dicionário do jogo, quais letras dobradas são reais em português
+// (RR de "carro", SS de "passo" etc.) em vez de fixar uma lista na mão.
+function computeAllowedDoubleLetters() {
+    const allowed = new Set();
+    for (const w of COMMON_WORDS) {
+        for (let i = 0; i < w.length - 1; i++) {
+            if (w[i] === w[i + 1]) allowed.add(w[i]);
+        }
+    }
+    return allowed;
+}
+const ALLOWED_DOUBLE_LETTERS = computeAllowedDoubleLetters();
+
+// Diz se dá pra colocar `letter` na célula `idx` sem formar trinca de letra repetida na colmeia.
+// Deixa passar UMA repetição (par) só se for uma dupla que existe de verdade em palavra do dicionário.
+function letterAllowedAt(grid, idx, letter) {
+    const r = Math.floor(idx / 5), c = idx % 5;
+    let sameCount = 0;
+    for (const [nr, nc] of hexNeighborsOf(r, c)) {
+        const nIdx = nr * 5 + nc;
+        if (grid[nIdx] !== letter) continue;
+        sameCount++;
+        // se esse vizinho ja tem OUTRO vizinho com a mesma letra, colocar aqui fecharia uma trinca
+        for (const [nr2, nc2] of hexNeighborsOf(nr, nc)) {
+            const n2Idx = nr2 * 5 + nc2;
+            if (n2Idx !== idx && grid[n2Idx] === letter) return false;
+        }
+    }
+    if (sameCount === 0) return true;
+    if (sameCount >= 2) return false;
+    return ALLOWED_DOUBLE_LETTERS.has(letter);
+}
+
+// Varre o tabuleiro pronto (semente + preenchimento) procurando 3 letras iguais se tocando
+// em sequência — pega também o caso de duas palavras plantadas se cruzando sem eu ter controlado.
+function hasRepeatedTriple(gridLetters) {
+    for (let i = 0; i < 25; i++) {
+        const letter = gridLetters[i];
+        const r = Math.floor(i / 5), c = i % 5;
+        const sameNeighbors = hexNeighborsOf(r, c).filter(([nr, nc]) => gridLetters[nr * 5 + nc] === letter);
+        if (sameNeighbors.length >= 2) return true;
+        for (const [nr, nc] of sameNeighbors) {
+            const nIdx = nr * 5 + nc;
+            const chain = hexNeighborsOf(nr, nc).some(([r2, c2]) => r2 * 5 + c2 !== i && gridLetters[r2 * 5 + c2] === letter);
+            if (chain) return true;
+        }
+    }
+    return false;
+}
+
 function generateValidBoard(forceCamila) {
+    const VOWELS_POOL = 'AAAAAEEEEEEIIIIOOOOUU';
+    const CONSOANTES_POOL = 'SSSSRRRRNNNNMMMCCCLLLPPPTTTVVDDGGGBBFFHHJJQQXXZZ';
     const FREQ = 'AAAAAEEEEEEIIIIOOOOUUUSSSSRRRRNNNNMMMCCCLLLPPPTTTVVDDGGGBBFFHH';
     const allRecent = new Set();
     recentBoardWords.forEach(set => set.forEach(w => allRecent.add(w)));
@@ -652,18 +706,44 @@ function generateValidBoard(forceCamila) {
             }
         }
 
-        // 2) preenche vazios com letras das palavras plantadas + frequência PT
+        // 2) preenche vazios com letras das palavras plantadas + frequência PT,
+        //    respeitando equilíbrio vogal/consoante e sem deixar 3 letras iguais se tocando
         const fromSeeds = planted.join('') || 'AEIOURSN';
         for (let i = 0; i < 25; i++) {
             if (grid[i] !== null) continue;
-            if (Math.random() > 0.35) {
-                grid[i] = fromSeeds[Math.floor(Math.random() * fromSeeds.length)];
-            } else {
-                grid[i] = FREQ[Math.floor(Math.random() * FREQ.length)];
+
+            const filledSoFar = grid.filter(x => x !== null);
+            const vowelCount = filledSoFar.filter(x => VOWEL_SET.has(x)).length;
+            const ratio = filledSoFar.length ? vowelCount / filledSoFar.length : 0.45;
+            // portugues tem uns 45% de vogal; corrige se o tabuleiro estiver desviando muito disso
+            const wantVowel = ratio < 0.38 ? true : (ratio > 0.55 ? false : Math.random() < 0.45);
+
+            let candidate = null;
+            for (let tries = 0; tries < 15 && !candidate; tries++) {
+                let pickPool;
+                const fromSeedsPool = fromSeeds.split('').filter(ch => VOWEL_SET.has(ch) === wantVowel);
+                if (fromSeedsPool.length && Math.random() > 0.35) {
+                    pickPool = fromSeedsPool;
+                } else {
+                    pickPool = (wantVowel ? VOWELS_POOL : CONSOANTES_POOL).split('');
+                }
+                const pick = pickPool[Math.floor(Math.random() * pickPool.length)];
+                if (letterAllowedAt(grid, i, pick)) candidate = pick;
             }
+            if (!candidate) {
+                // nao achou nada respeitando vogal/consoante preferida; tenta qualquer letra valida
+                const anyPool = shuffleInPlace(FREQ.split(''));
+                candidate = anyPool.find(ch => letterAllowedAt(grid, i, ch)) || FREQ[Math.floor(Math.random() * FREQ.length)];
+            }
+            grid[i] = candidate;
         }
 
         gridLetters = grid;
+
+        // rejeita o tabuleiro inteiro se sobrou trinca de letra repetida se tocando
+        // (pode ter vindo do cruzamento de duas palavras plantadas, não só do preenchimento)
+        if (hasRepeatedTriple(gridLetters)) continue;
+
         possibleMap = findPossibleWords(gridLetters);
 
         if (forceCamila && !possibleMap.has('CAMILA')) continue;
